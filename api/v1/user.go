@@ -1,13 +1,14 @@
 package v1
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ibrat-muslim/blog-app/api/models"
+	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
+	pbu "github.com/ibrat-muslim/blog_app_api_gateway/genproto/user_service"
 )
 
-// @Security ApiKeyAuth
 // @Router /users [post]
 // @Summary Create a user
 // @Description Create a user
@@ -28,8 +29,36 @@ func (h *handlerV1) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, nil)
+	user, err := h.grpcClient.UserService().Create(context.Background(), &pbu.User{
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		PhoneNumber:     *req.PhoneNumber,
+		Email:           req.Email,
+		Gender:          *req.Gender,
+		Password:        req.Password,
+		Username:        *req.Username,
+		ProfileImageUrl: *req.ProfileImageUrl,
+		Type:            req.Type,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, models.User{
+		ID:              user.Id,
+		FirstName:       user.FirstName,
+		LastName:        user.LastName,
+		PhoneNumber:     &user.PhoneNumber,
+		Email:           user.Email,
+		Gender:          &user.Gender,
+		Username:        &user.Username,
+		ProfileImageUrl: &user.ProfileImageUrl,
+		Type:            user.Type,
+		CreatedAt:       user.CreatedAt,
+	})
 }
+
 /*
 // @Router /users/{id} [get]
 // @Summary Get a user by id
@@ -78,7 +107,7 @@ func (h *handlerV1) GetUserProfile(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
-	
+
 	resp, err := h.storage.User().Get(payload.UserID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))

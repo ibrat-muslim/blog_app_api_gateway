@@ -2,17 +2,20 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	v1 "github.com/ibrat-muslim/blog-app/api/v1"
-	"github.com/ibrat-muslim/blog-app/config"
+	v1 "github.com/ibrat-muslim/blog_app_api_gateway/api/v1"
+	"github.com/ibrat-muslim/blog_app_api_gateway/config"
 
 	swaggerFiles "github.com/swaggo/files"     // swagger embed files
 	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
 
-	_ "github.com/ibrat-muslim/blog-app/api/docs" // for swagger
+	grpcPkg "github.com/ibrat-muslim/blog_app_api_gateway/pkg/grpc_client"
+
+	_ "github.com/ibrat-muslim/blog_app_api_gateway/api/docs" // for swagger
 )
 
 type RouterOptions struct {
-	Cfg *config.Config
+	Cfg        *config.Config
+	GrpcClient *grpcPkg.GrpcClient
 }
 
 // @title           Swagger for blog api
@@ -24,7 +27,8 @@ func New(opt *RouterOptions) *gin.Engine {
 	router := gin.Default()
 
 	handlerV1 := v1.New(&v1.HandlerV1Options{
-		Cfg: opt.Cfg,
+		Cfg:        opt.Cfg,
+		GrpcClient: opt.GrpcClient,
 	})
 
 	apiV1 := router.Group("/v1")

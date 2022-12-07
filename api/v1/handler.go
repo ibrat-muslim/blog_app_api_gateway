@@ -5,8 +5,9 @@ import (
 	// "strconv"
 
 	// "github.com/gin-gonic/gin"
-	"github.com/ibrat-muslim/blog-app/api/models"
-	"github.com/ibrat-muslim/blog-app/config"
+	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
+	"github.com/ibrat-muslim/blog_app_api_gateway/config"
+	grpcPkg "github.com/ibrat-muslim/blog_app_api_gateway/pkg/grpc_client"
 )
 
 var (
@@ -20,15 +21,18 @@ var (
 
 type handlerV1 struct {
 	cfg *config.Config
+	grpcClient *grpcPkg.GrpcClient
 }
 
 type HandlerV1Options struct {
 	Cfg *config.Config
+	GrpcClient *grpcPkg.GrpcClient
 }
 
 func New(options *HandlerV1Options) *handlerV1 {
 	return &handlerV1{
 		cfg: options.Cfg,
+		grpcClient: options.GrpcClient,
 	}
 }
 
@@ -37,6 +41,7 @@ func errorResponse(err error) *models.ErrorResponse {
 		Error: err.Error(),
 	}
 }
+
 /*
 func validateGetAllParamsRequest(ctx *gin.Context) (*models.GetAllParamsRequest, error) {
 	var (
