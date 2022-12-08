@@ -2,7 +2,10 @@ package v1
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
@@ -10,8 +13,8 @@ import (
 )
 
 // @Router /users [post]
-// @Summary Create a user
-// @Description Create a user
+// @Summary Create user
+// @Description Create user
 // @Tags user
 // @Accept json
 // @Produce json
@@ -32,12 +35,12 @@ func (h *handlerV1) CreateUser(ctx *gin.Context) {
 	user, err := h.grpcClient.UserService().Create(context.Background(), &pbu.User{
 		FirstName:       req.FirstName,
 		LastName:        req.LastName,
-		PhoneNumber:     *req.PhoneNumber,
+		PhoneNumber:     req.PhoneNumber,
 		Email:           req.Email,
-		Gender:          *req.Gender,
+		Gender:          req.Gender,
 		Password:        req.Password,
-		Username:        *req.Username,
-		ProfileImageUrl: *req.ProfileImageUrl,
+		Username:        req.Username,
+		ProfileImageUrl: req.ProfileImageUrl,
 		Type:            req.Type,
 	})
 	if err != nil {
@@ -45,24 +48,12 @@ func (h *handlerV1) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, models.User{
-		ID:              user.Id,
-		FirstName:       user.FirstName,
-		LastName:        user.LastName,
-		PhoneNumber:     &user.PhoneNumber,
-		Email:           user.Email,
-		Gender:          &user.Gender,
-		Username:        &user.Username,
-		ProfileImageUrl: &user.ProfileImageUrl,
-		Type:            user.Type,
-		CreatedAt:       user.CreatedAt,
-	})
+	ctx.JSON(http.StatusCreated, parseUserToModel(user))
 }
 
-/*
 // @Router /users/{id} [get]
-// @Summary Get a user by id
-// @Description Get a user by id
+// @Summary Get user by id
+// @Description Get user by id
 // @Tags user
 // @Accept json
 // @Produce json
@@ -79,7 +70,7 @@ func (h *handlerV1) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := h.storage.User().Get(id)
+	resp, err := h.grpcClient.UserService().Get(context.Background(), &pbu.IdRequest{Id: id})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -92,6 +83,34 @@ func (h *handlerV1) GetUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, parseUserToModel(resp))
 }
 
+// @Router /users/email/{email} [get]
+// @Summary Get user by email
+// @Description Get user by email
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param email path string true "Email"
+// @Success 200 {object} models.User
+// @Failure 400 {object} models.ErrorResponse
+// @Failure 404 {object} models.ErrorResponse
+// @Failure 500 {object} models.ErrorResponse
+func (h *handlerV1) GetUserByEmail(ctx *gin.Context) {
+	email := ctx.Param("email")
+
+	resp, err := h.grpcClient.UserService().GetByEmail(context.Background(), &pbu.EmailRequest{Email: email})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, parseUserToModel(resp))
+}
+
+/*
 // @Security ApiKeyAuth
 // @Router /users/me [get]
 // @Summary Get a user by token
@@ -116,6 +135,7 @@ func (h *handlerV1) GetUserProfile(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, parseUserToModel(resp))
 }
+*/
 
 // @Router /users [get]
 // @Summary Get users
@@ -134,7 +154,7 @@ func (h *handlerV1) GetUsers(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.storage.User().GetAll(&repo.GetUsersParams{
+	result, err := h.grpcClient.UserService().GetAll(context.Background(), &pbu.GetAllUsersRequest{
 		Limit:  request.Limit,
 		Page:   request.Page,
 		Search: request.Search,
@@ -147,7 +167,7 @@ func (h *handlerV1) GetUsers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, getUsersResponse(result))
 }
 
-func getUsersResponse(data *repo.GetUsersResult) *models.GetUsersResponse {
+func getUsersResponse(data *pbu.GetAllUsersResponse) *models.GetUsersResponse {
 	response := models.GetUsersResponse{
 		Users: make([]*models.User, 0),
 		Count: data.Count,
@@ -161,21 +181,20 @@ func getUsersResponse(data *repo.GetUsersResult) *models.GetUsersResponse {
 	return &response
 }
 
-// @Security ApiKeyAuth
 // @Router /users/{id} [put]
-// @Summary Update a user
-// @Description Update a user
+// @Summary Update user
+// @Description Update user
 // @Tags user
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param user body models.CreateUserRequest true "User"
-// @Success 200 {object} models.OKResponse
+// @Param user body models.UpdateUserRequest true "User"
+// @Success 200 {object} models.User
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 404 {object} models.ErrorResponse
 // @Failure 500 {object} models.ErrorResponse
 func (h *handlerV1) UpdateUser(ctx *gin.Context) {
-	var req models.CreateUserRequest
+	var req models.UpdateUserRequest
 
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
@@ -189,17 +208,14 @@ func (h *handlerV1) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	err = h.storage.User().Update(&repo.User{
-		ID:              id,
+	user, err := h.grpcClient.UserService().Update(context.Background(), &pbu.User{
+		Id:              id,
 		FirstName:       req.FirstName,
 		LastName:        req.LastName,
 		PhoneNumber:     req.PhoneNumber,
-		Email:           req.Email,
 		Gender:          req.Gender,
-		Password:        req.Password,
 		Username:        req.Username,
 		ProfileImageUrl: req.ProfileImageUrl,
-		Type:            req.Type,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -210,15 +226,12 @@ func (h *handlerV1) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, models.OKResponse{
-		Message: "successfully updated",
-	})
+	ctx.JSON(http.StatusOK, parseUserToModel(user))
 }
 
-// @Security ApiKeyAuth
 // @Router /users/{id} [delete]
-// @Summary Delete a user
-// @Description Delete a user
+// @Summary Delete user
+// @Description Delete user
 // @Tags user
 // @Accept json
 // @Produce json
@@ -234,7 +247,7 @@ func (h *handlerV1) DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	err = h.storage.User().Delete(id)
+	_, err = h.grpcClient.UserService().Delete(context.Background(), &pbu.IdRequest{Id: id})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -249,9 +262,9 @@ func (h *handlerV1) DeleteUser(ctx *gin.Context) {
 	})
 }
 
-func parseUserToModel(user *repo.User) models.User {
+func parseUserToModel(user *pbu.User) models.User {
 	return models.User{
-		ID:              user.ID,
+		ID:              user.Id,
 		FirstName:       user.FirstName,
 		LastName:        user.LastName,
 		PhoneNumber:     user.PhoneNumber,
@@ -263,4 +276,3 @@ func parseUserToModel(user *repo.User) models.User {
 		CreatedAt:       user.CreatedAt,
 	}
 }
-*/

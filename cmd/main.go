@@ -15,7 +15,7 @@ func main() {
 
 	grpcClient, err := grpcPkg.New(cfg)
 	if err != nil {
-		log.Fatalf("Failed to get grpc connection: %v", err)
+		log.Fatalf("failed to get grpc connection: %v", err)
 	}
 
 	apiServer := api.New(&api.RouterOptions{
