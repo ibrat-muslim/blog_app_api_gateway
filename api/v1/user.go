@@ -70,7 +70,7 @@ func (h *handlerV1) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := h.grpcClient.UserService().Get(context.Background(), &pbu.IdRequest{Id: id})
+	resp, err := h.grpcClient.UserService().Get(context.Background(), &pbu.GetUserRequest{Id: id})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -247,7 +247,7 @@ func (h *handlerV1) DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	_, err = h.grpcClient.UserService().Delete(context.Background(), &pbu.IdRequest{Id: id})
+	_, err = h.grpcClient.UserService().Delete(context.Background(), &pbu.GetUserRequest{Id: id})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))

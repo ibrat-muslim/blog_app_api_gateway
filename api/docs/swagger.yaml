@@ -19,6 +19,34 @@ definitions:
       username:
         type: string
     type: object
+  models.Category:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+    type: object
+  models.CreateCategoryRequest:
+    properties:
+      title:
+        maxLength: 100
+        type: string
+    required:
+    - title
+    type: object
+  models.CreatePostRequest:
+    properties:
+      category_id:
+        type: integer
+      description:
+        type: string
+      image_url:
+        type: string
+      title:
+        type: string
+    type: object
   models.CreateUserRequest:
     properties:
       email:
@@ -76,6 +104,36 @@ definitions:
     properties:
       message:
         type: string
+    type: object
+  models.Post:
+    properties:
+      category_id:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      like_info:
+        $ref: '#/definitions/models.PostLikeInfo'
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      views_count:
+        type: integer
+    type: object
+  models.PostLikeInfo:
+    properties:
+      dislikes_count:
+        type: integer
+      likes_count:
+        type: integer
     type: object
   models.RegisterRequest:
     properties:
@@ -224,6 +282,70 @@ paths:
       summary: Verify user
       tags:
       - auth
+  /categories:
+    post:
+      consumes:
+      - application/json
+      description: Create a category
+      parameters:
+      - description: Category
+        in: body
+        name: category
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Category'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create a category
+      tags:
+      - category
+  /posts:
+    post:
+      consumes:
+      - application/json
+      description: Create a post
+      parameters:
+      - description: Post
+        in: body
+        name: post
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create a post
+      tags:
+      - post
   /users:
     get:
       consumes:
