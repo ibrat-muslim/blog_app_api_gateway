@@ -2,19 +2,12 @@ package v1
 
 import (
 	"context"
-	// "database/sql"
-	// "errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
 	pbu "github.com/ibrat-muslim/blog_app_api_gateway/genproto/user_service"
 )
-
-// const (
-// 	RegisterCodeKey   = "register_code_"
-// 	ForgotPasswordKey = "forgot_password_code_"
-// )
 
 // @Router /auth/register [post]
 // @Summary Register a user
@@ -65,33 +58,6 @@ func (h *handlerV1) Register(ctx *gin.Context) {
 	})
 }
 
-/*
-func (h *handlerV1) sendVerificationCode(key, email string) error {
-	code, err := utils.GenerateRandomCode(6)
-	if err != nil {
-		return err
-	}
-
-	err = h.inMemory.Set(key + email, code, time.Minute)
-	if err != nil {
-		return err
-	}
-
-	err = emailPkg.SendEmail(h.cfg, &emailPkg.SendEmailRequest{
-		To:      []string{email},
-		Subject: "Verification email",
-		Body: map[string]string{
-			"code": code,
-		},
-		Type: emailPkg.VerificationEmail,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // @Router /auth/verify [post]
 // @Summary Verify user
 // @Description Verify user
@@ -102,9 +68,7 @@ func (h *handlerV1) sendVerificationCode(key, email string) error {
 // @Success 201 {object} models.AuthResponse
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 403 {object} models.ErrorResponse
-// @Failure 404 {object} models.ErrorResponse
-// @Failure 500 {object} models.ErrorResponse
-func (h *handlerV1) Verfiy(ctx *gin.Context) {
+func (h *handlerV1) Verify(ctx *gin.Context) {
 
 	var req models.VerifyRequest
 
@@ -114,58 +78,28 @@ func (h *handlerV1) Verfiy(ctx *gin.Context) {
 		return
 	}
 
-	userData, err := h.inMemory.Get("user_" + req.Email)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(err))
-		return
-	}
-
-	var user repo.User
-	err = json.Unmarshal([]byte(userData), &user)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(err))
-		return
-	}
-
-	code, err := h.inMemory.Get(RegisterCodeKey + user.Email)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(ErrCodeExpired))
-		return
-	}
-
-	if req.Code != code {
-		ctx.JSON(http.StatusForbidden, errorResponse(ErrIncorrectCode))
-		return
-	}
-
-	result, err := h.storage.User().Create(&user)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
-	}
-
-	token, _, err := utils.CreateToken(h.cfg, &utils.TokenParams{
-		UserID:   result.ID,
-		UserType: result.Type,
-		Email:    result.Email,
-		Duration: time.Hour * 24,
+	result, err := h.grpcClient.AuthService().Verify(context.Background(), &pbu.VerifyRequest{
+		Email: req.Email,
+		Code:  req.Code,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		ctx.JSON(http.StatusForbidden, errorResponse(err))
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, models.AuthResponse{
-		ID:          result.ID,
+	ctx.JSON(http.StatusCreated, &pbu.AuthResponse{
+		Id:          result.Id,
 		FirstName:   result.FirstName,
 		LastName:    result.LastName,
 		Email:       result.Email,
+		Username:    result.Username,
 		Type:        result.Type,
 		CreatedAt:   result.CreatedAt,
-		AccessToken: token,
+		AccessToken: result.AccessToken,
 	})
 }
 
+/*
 // @Router /auth/login [post]
 // @Summary Login user
 // @Description Login user
