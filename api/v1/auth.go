@@ -99,7 +99,6 @@ func (h *handlerV1) Verify(ctx *gin.Context) {
 	})
 }
 
-/*
 // @Router /auth/login [post]
 // @Summary Login user
 // @Description Login user
@@ -110,7 +109,6 @@ func (h *handlerV1) Verify(ctx *gin.Context) {
 // @Success 201 {object} models.AuthResponse
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 403 {object} models.ErrorResponse
-// @Failure 500 {object} models.ErrorResponse
 func (h *handlerV1) Login(ctx *gin.Context) {
 
 	var req models.LoginRequest
@@ -121,42 +119,23 @@ func (h *handlerV1) Login(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.storage.User().GetByEmail(req.Email)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			ctx.JSON(http.StatusForbidden, errorResponse(ErrWrongEmailOrPass))
-			return
-		}
-
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
-	}
-
-	err = utils.CheckPassword(req.Password, result.Password)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(ErrWrongEmailOrPass))
-		return
-	}
-
-	token, _, err := utils.CreateToken(h.cfg, &utils.TokenParams{
-		UserID:   result.ID,
-		UserType: result.Type,
-		Email:    result.Email,
-		Duration: time.Hour * 24,
+	result, err := h.grpcClient.AuthService().Login(context.Background(), &pbu.LoginRequest{
+		Email:    req.Email,
+		Password: req.Password,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		ctx.JSON(http.StatusForbidden, errorResponse(err))
 		return
 	}
 
 	ctx.JSON(http.StatusCreated, models.AuthResponse{
-		ID:          result.ID,
+		ID:          result.Id,
 		FirstName:   result.FirstName,
 		LastName:    result.LastName,
 		Email:       result.Email,
 		Type:        result.Type,
 		CreatedAt:   result.CreatedAt,
-		AccessToken: token,
+		AccessToken: result.AccessToken,
 	})
 }
 
@@ -167,7 +146,7 @@ func (h *handlerV1) Login(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param data body models.ForgotPasswordRequest true "Data"
-// @Success 201 {object} models.OKResponse
+// @Success 200 {object} models.OKResponse
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 404 {object} models.ErrorResponse
 // @Failure 500 {object} models.ErrorResponse
@@ -181,25 +160,24 @@ func (h *handlerV1) ForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	_, err = h.storage.User().GetByEmail(req.Email)
+	_, err = h.grpcClient.UserService().GetByEmail(context.Background(), &pbu.EmailRequest{
+		Email: req.Email,
+	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, errorResponse(ErrEmailExists))
-			return
-		}
+		ctx.JSON(http.StatusNotFound, errorResponse(ErrWrongEmailOrPass))
+		return
+	}
+
+	_, err = h.grpcClient.AuthService().ForgotPassword(context.Background(), &pbu.ForgotPasswordRequest{
+		Email: req.Email,
+	})
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
-	go func() {
-		err := h.sendVerificationCode(ForgotPasswordKey, req.Email)
-		if err != nil {
-			fmt.Printf("failed to send verification code: %v", err)
-		}
-	}()
-
-	ctx.JSON(http.StatusCreated, models.OKResponse{
-		Message: "Verification code has been sent!",
+	ctx.JSON(http.StatusOK, models.OKResponse{
+		Message: "Success!",
 	})
 }
 
@@ -214,7 +192,7 @@ func (h *handlerV1) ForgotPassword(ctx *gin.Context) {
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 403 {object} models.ErrorResponse
 // @Failure 500 {object} models.ErrorResponse
-func (h *handlerV1) VerfiyForgotPassword(ctx *gin.Context) {
+func (h *handlerV1) VerifyForgotPassword(ctx *gin.Context) {
 
 	var req models.VerifyRequest
 
@@ -224,45 +202,28 @@ func (h *handlerV1) VerfiyForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	code, err := h.inMemory.Get(ForgotPasswordKey + req.Email)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(ErrCodeExpired))
-		return
-	}
-
-	if req.Code != code {
-		ctx.JSON(http.StatusForbidden, errorResponse(ErrIncorrectCode))
-		return
-	}
-
-	result, err := h.storage.User().GetByEmail(req.Email)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
-	}
-
-	token, _, err := utils.CreateToken(h.cfg, &utils.TokenParams{
-		UserID:   result.ID,
-		UserType: result.Type,
-		Email:    result.Email,
-		Duration: time.Minute * 30,
+	result, err := h.grpcClient.AuthService().VerifyForgotPassword(context.Background(), &pbu.VerifyRequest{
+		Email: req.Email,
+		Code:  req.Code,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		ctx.JSON(http.StatusForbidden, errorResponse(err))
 		return
 	}
 
 	ctx.JSON(http.StatusCreated, models.AuthResponse{
-		ID:          result.ID,
+		ID:          result.Id,
 		FirstName:   result.FirstName,
 		LastName:    result.LastName,
 		Email:       result.Email,
+		Username:    result.Username,
 		Type:        result.Type,
 		CreatedAt:   result.CreatedAt,
-		AccessToken: token,
+		AccessToken: result.AccessToken,
 	})
 }
 
+/*
 // @Security ApiKeyAuth
 // @Router /auth/update-password [post]
 // @Summary Update password

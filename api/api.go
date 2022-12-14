@@ -35,6 +35,9 @@ func New(opt *RouterOptions) *gin.Engine {
 
 	apiV1.POST("/auth/register", handlerV1.Register)
 	apiV1.POST("/auth/verify", handlerV1.Verify)
+	apiV1.POST("/auth/login", handlerV1.Login)
+	apiV1.POST("/auth/forgot-password", handlerV1.ForgotPassword)
+	apiV1.POST("/auth/verify-forgot-password", handlerV1.VerifyForgotPassword)
 
 	apiV1.GET("/users/:id", handlerV1.GetUser)
 	// apiV1.GET("/users/me", handlerV1.GetUserProfile)
