@@ -2,16 +2,17 @@ package v1
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
 	pbu "github.com/ibrat-muslim/blog_app_api_gateway/genproto/user_service"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+// @Security ApiKeyAuth
 // @Router /users [post]
 // @Summary Create user
 // @Description Create user
@@ -44,7 +45,8 @@ func (h *handlerV1) CreateUser(ctx *gin.Context) {
 		Type:            req.Type,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		h.logger.WithError(err).Error("failed to create user")
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
@@ -72,7 +74,8 @@ func (h *handlerV1) GetUser(ctx *gin.Context) {
 
 	resp, err := h.grpcClient.UserService().Get(context.Background(), &pbu.GetUserRequest{Id: id})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		h.logger.WithError(err).Error("failed to get user")
+		if s, _ := status.FromError(err); s.Code() == codes.NotFound {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
@@ -91,7 +94,6 @@ func (h *handlerV1) GetUser(ctx *gin.Context) {
 // @Produce json
 // @Param email path string true "Email"
 // @Success 200 {object} models.User
-// @Failure 400 {object} models.ErrorResponse
 // @Failure 404 {object} models.ErrorResponse
 // @Failure 500 {object} models.ErrorResponse
 func (h *handlerV1) GetUserByEmail(ctx *gin.Context) {
@@ -99,7 +101,8 @@ func (h *handlerV1) GetUserByEmail(ctx *gin.Context) {
 
 	resp, err := h.grpcClient.UserService().GetByEmail(context.Background(), &pbu.EmailRequest{Email: email})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		h.logger.WithError(err).Error("failed to get user by email")
+		if s, _ := status.FromError(err); s.Code() == codes.NotFound {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
@@ -160,6 +163,7 @@ func (h *handlerV1) GetUsers(ctx *gin.Context) {
 		Search: request.Search,
 	})
 	if err != nil {
+		h.logger.WithError(err).Error("failed to get all users")
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
@@ -181,6 +185,7 @@ func getUsersResponse(data *pbu.GetAllUsersResponse) *models.GetUsersResponse {
 	return &response
 }
 
+// @Security ApiKeyAuth
 // @Router /users/{id} [put]
 // @Summary Update user
 // @Description Update user
@@ -218,7 +223,8 @@ func (h *handlerV1) UpdateUser(ctx *gin.Context) {
 		ProfileImageUrl: req.ProfileImageUrl,
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		h.logger.WithError(err).Error("failed to update user")
+		if s, _ := status.FromError(err); s.Code() == codes.NotFound {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
@@ -229,6 +235,7 @@ func (h *handlerV1) UpdateUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, parseUserToModel(user))
 }
 
+// @Security ApiKeyAuth
 // @Router /users/{id} [delete]
 // @Summary Delete user
 // @Description Delete user
@@ -249,7 +256,8 @@ func (h *handlerV1) DeleteUser(ctx *gin.Context) {
 
 	_, err = h.grpcClient.UserService().Delete(context.Background(), &pbu.GetUserRequest{Id: id})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		h.logger.WithError(err).Error("failed to delete user")
+		if s, _ := status.FromError(err); s.Code() == codes.NotFound {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}

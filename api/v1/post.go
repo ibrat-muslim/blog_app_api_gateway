@@ -13,6 +13,7 @@ import (
 	pbp "github.com/ibrat-muslim/blog_app_api_gateway/genproto/post_service"
 )
 
+// @Security ApiKeyAuth
 // @Router /posts [post]
 // @Summary Create a post
 // @Description Create a post

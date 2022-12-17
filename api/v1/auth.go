@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
 	pbu "github.com/ibrat-muslim/blog_app_api_gateway/genproto/user_service"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // @Router /auth/register [post]
@@ -29,15 +31,10 @@ func (h *handlerV1) Register(ctx *gin.Context) {
 		return
 	}
 
-	_, err = h.grpcClient.UserService().GetByEmail(context.Background(), &pbu.EmailRequest{
+	user, _ := h.grpcClient.UserService().GetByEmail(context.Background(), &pbu.EmailRequest{
 		Email: req.Email,
 	})
-	// if !errors.Is(e, sql.ErrNoRows) { //TODO
-	// 	ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-	// 	return
-	// }
-
-	if err == nil {
+	if user != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(ErrEmailExists))
 		return
 	}
@@ -83,8 +80,17 @@ func (h *handlerV1) Verify(ctx *gin.Context) {
 		Code:  req.Code,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(err))
-		return
+		s, _ := status.FromError(err)
+		if s.Message() == "incorrect_code" {
+			ctx.JSON(http.StatusBadRequest, errorResponse(ErrIncorrectCode))
+			return
+		} else if s.Message() == "code_expired" {
+			ctx.JSON(http.StatusBadRequest, errorResponse(ErrCodeExpired))
+			return
+		} else {
+			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+			return
+		}
 	}
 
 	ctx.JSON(http.StatusCreated, &pbu.AuthResponse{
@@ -124,7 +130,13 @@ func (h *handlerV1) Login(ctx *gin.Context) {
 		Password: req.Password,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(err))
+		s, _ := status.FromError(err)
+		if s.Code() == codes.NotFound || s.Message() == "incorrect_password" {
+			ctx.JSON(http.StatusBadRequest, errorResponse(ErrWrongEmailOrPass))
+			return 
+		} 
+
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 

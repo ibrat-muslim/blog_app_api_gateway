@@ -8,6 +8,7 @@ import (
 	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
 	"github.com/ibrat-muslim/blog_app_api_gateway/config"
 	grpcPkg "github.com/ibrat-muslim/blog_app_api_gateway/pkg/grpc_client"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -16,23 +17,26 @@ var (
 	ErrEmailExists      = errors.New("email already exists")
 	ErrIncorrectCode    = errors.New("incorrect verification code")
 	ErrCodeExpired      = errors.New("verification code has been expired")
-	ErrForbidden        = errors.New("forbidden")
+	ErrNotAllowed       = errors.New("method not allowed")
 )
 
 type handlerV1 struct {
 	cfg        *config.Config
 	grpcClient grpcPkg.GrpcClientI
+	logger     *logrus.Logger
 }
 
 type HandlerV1Options struct {
 	Cfg        *config.Config
 	GrpcClient grpcPkg.GrpcClientI
+	Logger     *logrus.Logger
 }
 
 func New(options *HandlerV1Options) *handlerV1 {
 	return &handlerV1{
 		cfg:        options.Cfg,
 		grpcClient: options.GrpcClient,
+		logger:     options.Logger,
 	}
 }
 
