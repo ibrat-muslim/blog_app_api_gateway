@@ -49,7 +49,7 @@ func (h *handlerV1) AuthMiddleware(resource, action string) gin.HandlerFunc {
 			return
 		}
 
-		ctx.Set(authorizationPayloadKey, Payload{
+		ctx.Set(authorizationPayloadKey, &Payload{
 			ID:        payload.Id,
 			UserID:    payload.UserId,
 			Email:     payload.Email,

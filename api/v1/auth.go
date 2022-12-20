@@ -31,6 +31,11 @@ func (h *handlerV1) Register(ctx *gin.Context) {
 		return
 	}
 
+	if !validatePassword(req.Password) {
+		ctx.JSON(http.StatusBadRequest, errorResponse(ErrWeakPassword))
+		return
+	}
+
 	user, _ := h.grpcClient.UserService().GetByEmail(context.Background(), &pbu.EmailRequest{
 		Email: req.Email,
 	})
@@ -133,8 +138,8 @@ func (h *handlerV1) Login(ctx *gin.Context) {
 		s, _ := status.FromError(err)
 		if s.Code() == codes.NotFound || s.Message() == "incorrect_password" {
 			ctx.JSON(http.StatusBadRequest, errorResponse(ErrWrongEmailOrPass))
-			return 
-		} 
+			return
+		}
 
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
@@ -235,7 +240,6 @@ func (h *handlerV1) VerifyForgotPassword(ctx *gin.Context) {
 	})
 }
 
-/*
 // @Security ApiKeyAuth
 // @Router /auth/update-password [post]
 // @Summary Update password
@@ -257,21 +261,20 @@ func (h *handlerV1) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
+	if !validatePassword(req.Password) {
+		ctx.JSON(http.StatusBadRequest, errorResponse(ErrWeakPassword))
+		return
+	}
+
 	payload, err := h.GetAuthPayload(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
-	hashedPassword, err := utils.HashPassword(req.Password)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
-	}
-
-	err = h.storage.User().UpdatePassword(&repo.UpdatePassword{
-		UserID: payload.UserID,
-		Password: hashedPassword,
+	_, err = h.grpcClient.UserService().UpdatePassword(context.Background(), &pbu.UpdatePasswordRequest{
+		UserId:   payload.UserID,
+		Password: req.Password,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -282,4 +285,20 @@ func (h *handlerV1) UpdatePassword(ctx *gin.Context) {
 		Message: "Password has been updated",
 	})
 }
-*/
+
+func validatePassword(password string) bool {
+	var capitalLetter, smallLetter, number, symbol bool
+
+	for i := 0; i < len(password); i++ {
+		if password[i] >= 65 && password[i] <= 90 {
+			capitalLetter = true
+		} else if password[i] >= 97 && password[i] <= 122 {
+			smallLetter = true
+		} else if password[i] >= 48 && password[i] <= 57 {
+			number = true
+		} else {
+			symbol = true
+		}
+	}
+	return capitalLetter && smallLetter && number && symbol
+}

@@ -176,6 +176,15 @@ definitions:
     - last_name
     - password
     type: object
+  models.UpdatePasswordRequest:
+    properties:
+      password:
+        maxLength: 16
+        minLength: 6
+        type: string
+    required:
+    - password
+    type: object
   models.UpdateUserRequest:
     properties:
       first_name:
@@ -335,6 +344,38 @@ paths:
       summary: Register a user
       tags:
       - auth
+  /auth/update-password:
+    post:
+      consumes:
+      - application/json
+      description: Update password
+      parameters:
+      - description: Data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.OKResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update password
+      tags:
+      - auth
   /auth/verify:
     post:
       consumes:
@@ -465,6 +506,47 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Create a post
+      tags:
+      - post
+  /posts/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update a post
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Post
+        in: body
+        name: post
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a post
       tags:
       - post
   /users:
@@ -669,6 +751,27 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Get user by email
+      tags:
+      - user
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      description: Get a user by token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get a user by token
       tags:
       - user
 securityDefinitions:

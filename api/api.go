@@ -45,9 +45,10 @@ func New(opt *RouterOptions) *gin.Engine {
 	apiV1.POST("/auth/login", handlerV1.Login)
 	apiV1.POST("/auth/forgot-password", handlerV1.ForgotPassword)
 	apiV1.POST("/auth/verify-forgot-password", handlerV1.VerifyForgotPassword)
+	apiV1.POST("/auth/update-password", handlerV1.AuthMiddleware("users", "update-password"), handlerV1.UpdatePassword)
 
 	apiV1.GET("/users/:id", handlerV1.GetUser)
-	// apiV1.GET("/users/me", handlerV1.GetUserProfile)
+	apiV1.GET("/users/me", handlerV1.AuthMiddleware("users", "get-user-profile"), handlerV1.GetUserProfile)
 	apiV1.GET("/users", handlerV1.GetUsers)
 	apiV1.GET("/users/email/:email", handlerV1.GetUserByEmail)
 	apiV1.POST("/users", handlerV1.AuthMiddleware("users", "create"), handlerV1.CreateUser)
@@ -55,6 +56,7 @@ func New(opt *RouterOptions) *gin.Engine {
 	apiV1.DELETE("users/:id", handlerV1.AuthMiddleware("users", "delete"), handlerV1.DeleteUser)
 
 	apiV1.POST("/posts", handlerV1.AuthMiddleware("posts", "create"), handlerV1.CreatePost)
+	apiV1.PUT("/posts/:id", handlerV1.AuthMiddleware("posts", "update"), handlerV1.UpdatePost)
 
 	apiV1.POST("/categories", handlerV1.AuthMiddleware("categories", "create"), handlerV1.CreateCategory)
 

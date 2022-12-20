@@ -1,16 +1,15 @@
 package v1
 
 import (
-	// "database/sql"
-	// "errors"
 	"context"
 	"net/http"
-	// "strconv"
-	// "time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ibrat-muslim/blog_app_api_gateway/api/models"
 	pbp "github.com/ibrat-muslim/blog_app_api_gateway/genproto/post_service"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // @Security ApiKeyAuth
@@ -34,11 +33,17 @@ func (h *handlerV1) CreatePost(ctx *gin.Context) {
 		return
 	}
 
+	payload, err := h.GetAuthPayload(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
 	resp, err := h.grpcClient.PostService().Create(context.Background(), &pbp.Post{
 		Title:       req.Title,
 		Description: req.Description,
 		ImageUrl:    req.ImageUrl,
-		UserId:      1,
+		UserId:      payload.UserID,
 		CategoryId:  req.CategoryID,
 	})
 	if err != nil {
@@ -209,12 +214,13 @@ func getPostsResponse(h *handlerV1, data *repo.GetPostsResult) (*models.GetPosts
 			LikesCount:    likeInfo.LikesCount,
 			DislikesCount: likeInfo.DislikesCount,
 		}
-		
+
 		response.Posts = append(response.Posts, &p)
 	}
 
 	return &response, nil
 }
+*/
 
 // @Security ApiKeyAuth
 // @Router /posts/{id} [put]
@@ -225,7 +231,7 @@ func getPostsResponse(h *handlerV1, data *repo.GetPostsResult) (*models.GetPosts
 // @Produce json
 // @Param id path int true "ID"
 // @Param post body models.CreatePostRequest true "Post"
-// @Success 200 {object} models.OKResponse
+// @Success 201 {object} models.Post
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 404 {object} models.ErrorResponse
 // @Failure 500 {object} models.ErrorResponse
@@ -244,19 +250,22 @@ func (h *handlerV1) UpdatePost(ctx *gin.Context) {
 		return
 	}
 
-	updatedAt := time.Now()
+	payload, err := h.GetAuthPayload(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
 
-	err = h.storage.Post().Update(&repo.Post{
-		ID:          id,
+	resp, err := h.grpcClient.PostService().Update(context.Background(), &pbp.Post{
+		Id:          id,
 		Title:       req.Title,
 		Description: req.Description,
 		ImageUrl:    req.ImageUrl,
-		CategoryID:  req.CategoryID,
-		UpdatedAt:   &updatedAt,
+		UserId:      payload.UserID,
+		CategoryId:  req.CategoryID,
 	})
-
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if s, _ := status.FromError(err); s.Code() == codes.NotFound {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
@@ -264,11 +273,10 @@ func (h *handlerV1) UpdatePost(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, models.OKResponse{
-		Message: "successfully updated",
-	})
+	ctx.JSON(http.StatusOK, parsePostToModel(resp))
 }
 
+/*
 // @Security ApiKeyAuth
 // @Router /posts/{id} [delete]
 // @Summary Delete a post

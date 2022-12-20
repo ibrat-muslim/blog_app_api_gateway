@@ -113,7 +113,6 @@ func (h *handlerV1) GetUserByEmail(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, parseUserToModel(resp))
 }
 
-/*
 // @Security ApiKeyAuth
 // @Router /users/me [get]
 // @Summary Get a user by token
@@ -130,15 +129,21 @@ func (h *handlerV1) GetUserProfile(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := h.storage.User().Get(payload.UserID)
+	resp, err := h.grpcClient.UserService().Get(context.Background(), &pbu.GetUserRequest{
+		Id: payload.UserID,
+	})
 	if err != nil {
+		h.logger.WithError(err).Error("failed to get user profile")
+		if s, _ := status.FromError(err); s.Code() == codes.NotFound {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
 	ctx.JSON(http.StatusOK, parseUserToModel(resp))
 }
-*/
 
 // @Router /users [get]
 // @Summary Get users
